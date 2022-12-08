@@ -5,7 +5,6 @@ class Render {
     }
   }
   static drawLine(ctx, x, y, w, h) {
-    ctx.fillStyle = "green";
     ctx.fill();
     ctx.beginPath();
 
@@ -14,27 +13,132 @@ class Render {
 
     ctx.moveTo(x + 20, y - 20);
     ctx.lineTo(x - 20, y + 20);
-    ctx.stroke();
-  }
-  static drawRect(ctx, x, y, w, h) {
-    ctx.beginPath();
     ctx.fillStyle = "green";
     ctx.fill();
-    ctx.rect(x, y, w, h);
     ctx.stroke();
+    ctx.restore();
   }
+  static drawRect(ctx, x, y, w, h, color, colorStroke) {
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    if (color) {
+      ctx.fillStyle = color;
+    }
+    if (colorStroke) {
+      ctx.strokeStyle = colorStroke;
+    }
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+class Vector2D {
+  x = 0;
+  y = 0;
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+  }
+  clear() {
+    this.x = 0;
+    this.y = 0;
+  }
+}
+class Vector3D {
+  x = 0;
+  y = 0;
+  z = 0;
+  constructor(x, y, z) {
+    this.x = x;
+    this.y = y;
+    this.z = z;
+  }
+}
+
+class Collision {
+  /**
+   * dectect with singgle value and 4 point
+   *
+   * @param   {Vector2D}  vector2D  [vector2D description]
+   * @param   {Vector2D[]}  range         [x description]
+   * @return  {boolean}            [return description]
+   */
+  static detectRect(vector2D, range) {
+    const [point1, point2, point3, point4] = range;
+    if (
+      vector2D &&
+      range &&
+      vector2D.x > point1.x &&
+      vector2D.x < point2.x &&
+      vector2D.y > point3.y &&
+      vector2D.y < point4.y
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * break posin to arrayAttachment
+   *
+   * @param   {number}  x  [x description]
+   * @param   {number}  y  [y description]
+   * @param   {number}  w  [w description]
+   * @param   {number}  h  [h description]
+   *
+   * @return  {Vector2D[]}     [return description]
+   */
+
+  static createPointCollision(target) {
+    const { x, y, w, h } = target;
+    return [
+      new Vector2D(x, y),
+      new Vector2D(x + w, y ?? 0),
+      new Vector2D(x + w, y + (h ?? 0)),
+      new Vector2D(x, y + y + (h ?? 0)),
+    ];
+  }
+
+  /**
+   * check Collision if have a rangeDetect from
+   *
+   * @param   {GameObject>}  attack   [point description]
+   * @param   {GameObject}  target  [target description]
+   *
+   * @return  {boolean}          [return description]
+   */
+
+  static detectRangeCollision(attack, target) {
+    const rangeDetect = Collision.createPointCollision(target);
+
+    return Collision.detectRect(new Vector2D(attack.x, attack.y), rangeDetect);
+  }
+  center(x, y, w, h) {
+    return {
+      x: x + w / 2,
+      y: y + h / 2,
+    };
+  }
+  doubleCollision() {}
 }
 class GameObject {
   ctx;
   id;
   name;
   type;
-  x;
-  y;
+  x = 20;
+  y = 20;
+  z = 20;
+  // width, height
   w = 20;
   h = 20;
+  // gravity
+  g = 0;
+  direction = new Vector3D(0, 0, 0);
   root;
   _logFlag = 1;
+
   constructor(ctx, x, y, w, h) {
     this.ctx = ctx;
     this.x = x;
@@ -43,23 +147,100 @@ class GameObject {
     this.h = h;
     this.init();
   }
+  cache = {
+    x: this.x,
+    y: this.y,
+    w: this.w,
+    h: this.h,
+    direction: this.direction,
+  };
+  _reality() {
+    if (this.g) {
+      this.direction.y += this.g;
+    }
 
+    if (this.direction) {
+      this.y += this.direction.y;
+      this.x += this.direction.x;
+    }
+  }
+  _live() {}
   start() {}
   init() {}
+  checkCollision(target) {
+    const _this = this;
+    return Collision.detectRangeCollision(_this, target);
+  }
+  checkListCollision(targetList) {
+    const detectList = targetList.filter((target) => {
+      return this.checkCollision(target);
+    });
+
+    return detectList;
+  }
   subscribe(name, $event) {}
   clear() {
     this.ctx.clearRect(this.x, this.y, this.w, this.h);
   }
-  render() {
+  loop() {}
+  draw() {
+    this.clear();
     if (this.ctx) {
-      Render.drawRect(this.ctx, this.x, this.y, 40, 40);
+      const boudary = this.boudary();
+      Render.drawRect(
+        this.ctx,
+        boudary.x,
+        boudary.y,
+        boudary.w,
+        boudary.h,
+        "#00000000",
+        "#34eb6e"
+      );
+      Render.drawRect(
+        this.ctx,
+        this.x,
+        this.y,
+        this.w,
+        this.h,
+        "black",
+        "black"
+      );
     } else {
       console.log("ctx is not exists");
     }
   }
+  center() {
+    return new Vector2D(this.x + this.w / 2, this.y + this.h / 2);
+  }
+  boudary() {
+    return {
+      x: this.x - 10,
+      y: this.y - 10,
+      w: this.w + 20,
+      h: this.h + 20,
+    };
+  }
+  _stop() {}
 }
-class Scene extends GameObject {}
+class Scene extends GameObject {
+  constructor(ctx, x, y, w, h) {
+    super(ctx, x, y, w, h);
+    this.ctx = ctx;
+    this.x = x;
+    this.y = y;
+    this.w = w;
+    this.h = h;
+  }
+}
 class Mouse extends GameObject {
+  constructor(ctx, x, y, w, h) {
+    super(ctx, x, y, w, h);
+    this.ctx = ctx;
+    this.x = x;
+    this.y = y;
+    this.w = w;
+    this.h = h;
+  }
   w = 20;
   h = 20;
   x = 0;
@@ -79,11 +260,19 @@ class Mouse extends GameObject {
 class Sprite extends GameObject {
   constructor(ctx, x, y, w, h) {
     super(ctx, x, y, w, h);
+    this.ctx = ctx;
+    this.x = x;
+    this.y = y;
+    this.w = w;
+    this.h = h;
+  }
+  _live() {
+    this._reality();
   }
 }
 class GameController {
   base = {
-    militime: 1000,
+    millitime: 1000,
     fps: 30,
     w: 0,
     h: 0,
@@ -95,7 +284,7 @@ class GameController {
   // setup
   objList = this.base.objList;
   objBaseList = this.base.objBaseList;
-  militime = this.base.militime;
+  millitime = this.base.millitime;
   fps = this.base.fps;
   x = this.base.x;
   y = this.base.y;
@@ -111,6 +300,7 @@ class GameController {
     away: 1,
     debug: 0,
   };
+  dataCollision = [];
   // base when reset
 
   constructor(root, x, y, w, h) {
@@ -176,8 +366,6 @@ class GameController {
 
     if (obj) {
       obj.root = this;
-      obj.x = this.x;
-      obj.y = this.y;
       obj.id = oId ?? id;
       obj.ctx = this.ctx;
 
@@ -206,27 +394,52 @@ class GameController {
 
     return aObj;
   }
+  _checkAllCollision() {
+    const allObject = this.getAllObject();
+    const dataCheckList = Object.values(allObject);
+
+    const dataList = dataCheckList.filter(
+      (dataCheck) =>
+        dataCheck && dataCheck.checkListCollision(dataCheckList).length > 0
+    );
+
+    if (dataList.length > 0) {
+      console.log(dataList);
+      dataList.forEach((data) => {
+        data.direction = {
+          x: data.direction.x,
+          y: -data.direction.y + data.g,
+        };
+      });
+    }
+    this.dataCollision = dataList;
+  }
+  //
   // warning time with this is error
   _render() {
     const totallOject = this.getAllObject();
-
+    this._clear();
     Object.entries(totallOject).forEach(([key, item]) => {
-      item.render();
+      item._live();
+      item.loop();
+      item.draw();
     });
   }
   _clear() {
-    this.ctx.clearRect(this.x, this.y, this.w, this.h);
+    this.ctx.clearRect(0, 0, this.w + 20, this.h + 20);
     this.ctx.restore();
   }
   _runAway() {
     this.interval = setInterval(() => {
       try {
+        this._checkAllCollision();
         this._render();
       } catch (error) {
         this._destroy();
         this._reset();
+        console.error("Error: ", error);
       }
-    }, this.militime / this.fps);
+    }, this.millitime / this.fps);
   }
   _destroy() {
     clearInterval(this.interval);
@@ -241,11 +454,12 @@ class GameController {
     this.y = this.base.y;
     this.w = this.base.w;
     this.h = this.base.h;
-    this.objList = {};
-    this.objBaseList = {};
-    this.militime = this.base.militime;
+    this.millitime = this.base.millitime;
     this.fps = this.base.fps;
-    this.cache = {};
+  }
+  _stop() {
+    console.log("clear it");
+    clearInterval(this.interval);
   }
   _saveCache() {
     this.cache = {
@@ -255,15 +469,15 @@ class GameController {
       h: this.h,
       objList: this.objList,
       ctx: this.ctx,
-      militime: this.militime,
+      millitime: this.millitime,
       fps: this.fps,
     };
   }
   _pause() {
     this._saveCache();
-    this.militime = 0;
+    this.millitime = 0;
   }
   _resume() {
-    this.militime = this.cache.militime;
+    this.millitime = this.cache.millitime;
   }
 }

@@ -19,7 +19,7 @@ class Logger {
     const rootView = document.getElementById("rootView");
     rootView.appendChild(this.gameController[0]);
   }
-  logging() {
+  static log() {
     this.gameController.forEach((game) => {});
   }
 }
